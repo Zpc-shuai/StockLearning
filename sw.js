@@ -1,11 +1,11 @@
-const CACHE_NAME = "a-share-learning-v1";
+const CACHE_NAME = "a-share-learning-v3-20261114";
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/manifest.webmanifest",
-  "/icons/icon.svg",
-  "/icons/apple-touch-icon.svg"
-];
+  "./",
+  "./index.html",
+  "./manifest.webmanifest",
+  "./icons/icon.svg",
+  "./icons/apple-touch-icon.svg"
+].map((path) => new URL(path, self.registration.scope).href);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -24,7 +24,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  if (event.request.method !== "GET" || !event.request.url.startsWith(self.registration.scope)) return;
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -34,7 +34,9 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return response;
         })
-        .catch(() => caches.match("/index.html"));
+        .catch(() => event.request.mode === "navigate"
+          ? caches.match(new URL("./index.html", self.registration.scope).href)
+          : Response.error());
     })
   );
 });
