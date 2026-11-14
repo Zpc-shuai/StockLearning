@@ -1,4 +1,4 @@
-const CACHE_NAME = "a-share-learning-v3-20261114";
+const CACHE_NAME = "a-share-learning-v4-20261114";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -25,18 +25,31 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET" || !event.request.url.startsWith(self.registration.scope)) return;
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request, { cache: "no-cache" })
+        .then(async (response) => {
+          if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(APP_SHELL[1], response.clone()).catch(() => undefined);
+          }
+          return response;
+        })
+        .catch(() => caches.match(APP_SHELL[1]).then((cached) => cached ?? Response.error()))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => event.request.mode === "navigate"
-          ? caches.match(new URL("./index.html", self.registration.scope).href)
-          : Response.error());
+      return fetch(event.request).then(async (response) => {
+        if (response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(event.request, response.clone()).catch(() => undefined);
+        }
+        return response;
+      }).catch(() => Response.error());
     })
   );
 });
