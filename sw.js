@@ -1,4 +1,4 @@
-const CACHE_NAME = "a-share-learning-v4-20261114";
+const CACHE_NAME = "a-share-learning-v5-20261115";
 const APP_SHELL = [
   "./",
   "./index.html",
