@@ -1,4 +1,4 @@
-const CACHE_NAME = "a-share-learning-v5-20261115";
+const CACHE_NAME = "a-share-learning-v6-20261117";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,19 +8,29 @@ const APP_SHELL = [
 ].map((path) => new URL(path, self.registration.scope).href);
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
-  );
-  self.skipWaiting();
+  event.waitUntil((async () => {
+    const [home, index, ...staticFiles] = APP_SHELL;
+    const response = await fetch(index, { cache: "reload" });
+    if (!response.ok) throw new Error("Unable to cache the app index");
+    const html = await response.clone().text();
+    // Vite emits the content-hashed entry script and stylesheet into index.html.
+    const entries = [...html.matchAll(/(?:src|href)="(\.\/assets\/[^"]+\.(?:js|css))"/g)]
+      .map(([, path]) => new URL(path, index).href);
+    if (!entries.length) throw new Error("No generated app assets found");
+    const cache = await caches.open(CACHE_NAME);
+    await cache.addAll([...staticFiles, ...entries]);
+    await cache.put(home, response.clone());
+    await cache.put(index, response);
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
+      Promise.all(keys.filter((key) => key.startsWith("a-share-learning-") && key !== CACHE_NAME).map((key) => caches.delete(key)))
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
